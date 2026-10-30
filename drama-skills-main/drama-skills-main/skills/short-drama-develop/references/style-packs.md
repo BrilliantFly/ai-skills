@@ -317,7 +317,7 @@
 > 与上面的视觉风格包**正交**：视觉包管"看起来像"，子包管"打起来像"。每个子包给主文档 §3 第七要素
 > 「动作文法」的五项取值——攻防密度 / 接触方式 / 镜头跟打法 / 剪辑率与变速点 / 禁用动作习惯。
 > 兵器接触与受击余态的具体句式见 `$short-drama-storyboard` 的
-> [肢体互动手艺](../../short-drama-storyboard/references/physical-interaction-craft.md) 第五节。
+> 「肢体互动手艺」（`physical-interaction-craft.md`）第五节。
 > 子包名是**类型级标签**，不进提示词词面（合规红线同主文档 §2）；只把五项翻译成可见写法。
 
 ### action-holdpose · 定格亮相·快切串势（60-70s 棚景武侠）

@@ -21,8 +21,8 @@
   不许"下一镜两人已经离半米"的无过程跳变
 - 打斗接触同规则：抓领口写"单手抓前襟、指节朝内"，出拳写接触瞬间前的 last visible frame
   （拳头已出、未触到），命中结果用反应镜或剪切承载——**平台审核与画面可信双重要求**
-- 危险接触（锁喉、拖拽）按 [平台审核规避词表](../../short-drama-video-prompts/references/platform-safety-lexicon.md)
-  在送生成时降档描写，文档层保留真实动作
+- 危险接触（锁喉、拖拽）按 `$short-drama-video-prompts` 的「平台审核规避词表」
+  （`platform-safety-lexicon.md`）在送生成时降档描写，文档层保留真实动作
 
 ## 二、双人同时动作的时序错位写法
 

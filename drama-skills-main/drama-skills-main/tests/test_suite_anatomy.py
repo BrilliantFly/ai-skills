@@ -707,7 +707,12 @@ class MarkdownBoldRunTests(unittest.TestCase):
             path
             for path in files
             if path.is_file()
-            and not any(part in str(path) for part in self.EXCLUDED)
+            # 分隔符必须归一：`str(path)` 在 Windows 上是反斜杠形式，而 EXCLUDED 用正斜杠写，
+            # 于是"排除已记录的创作者原文"这条声明在 Windows 上从不生效——被豁免的原文
+            # 反而进了 lint 并报红。判定用相对路径的 POSIX 形式，两个平台同一行为。
+            and not any(
+                part in path.relative_to(SUITE).as_posix() for part in self.EXCLUDED
+            )
         ]
 
     def unclosable_runs(self, text: str) -> list[str]:
@@ -741,4 +746,33 @@ class MarkdownBoldRunTests(unittest.TestCase):
                     f"{path.relative_to(SUITE)}: a bold run ends with punctuation "
                     f"inside the markers, so it renders literally on GitHub; move "
                     f"the punctuation outside",
+                )
+
+    def test_declared_reference_run_exclusion_actually_excludes(self) -> None:
+        """EXCLUDED 声明必须真的生效（两个平台都是）。
+
+        上一版用 `str(path)` 比对正斜杠写的排除前缀，Windows 下永不匹配，
+        于是「reference-run 是记录下来的创作者原文、措辞不归套件改」这条政策形同虚设，
+        表现为两条本应豁免的报红。这里直接断言排除项下的文件不在待检列表里，
+        而不是只测 lint 结果——分隔符回归只有这样才能被钉住。
+        """
+        shipped = {
+            path.relative_to(SUITE).as_posix() for path in self.shipped_markdown()
+        }
+        for prefix in self.EXCLUDED:
+            on_disk = [
+                rel
+                for rel in sorted(
+                    p.relative_to(SUITE).as_posix()
+                    for p in (SUITE / prefix).rglob("*.md")
+                )
+            ]
+            with self.subTest(prefix=prefix):
+                if not on_disk:
+                    self.skipTest(f"{prefix} 下没有 Markdown，排除项暂无对象")
+                leaked = [rel for rel in on_disk if rel in shipped]
+                self.assertEqual(
+                    leaked,
+                    [],
+                    f"{prefix} 声明为排除，却仍有 {len(leaked)} 份进入待检列表",
                 )

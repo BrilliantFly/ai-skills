@@ -195,7 +195,7 @@ license: MIT
 - 人贴人肢体接触的四级描写、双人动作时序错位与打斗招式、兵刃对抗：[肢体互动手艺](references/physical-interaction-craft.md)
 - 一对多、混战与多人同时动作的轮次编排：[围攻与轮次](references/blocking-playbooks.md#5b-围攻与轮次一对多混战)
 - 项目已锁定打斗风格子包（攻防密度/接触方式/镜头跟打法/变速点）时：招式取值按子包，见
-  [武指/打斗风格子包](../short-drama-develop/references/style-packs.md#武指打斗风格子包动作文法层)
+  `$short-drama-develop` 的「武指/打斗风格子包（动作文法层）」（`style-packs.md`）
 <!-- mount:wuxia-fight v1 begin -->
 - 本镜涉及兵器或拳掌的接触、发力链、轻功腾跃、超常输出，需要可拍的身体依据而不只是招式名时：
   [武打身体依据](references/martial-action-library.md)（只补距离、发力链、接触强弱区与回收负担；

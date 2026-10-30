@@ -90,6 +90,21 @@
 
 ### Fixed
 
+- 跨技能相对文件链接全部改为 `$skill` 记法，恢复「每个技能是独立安装单元」这条已写进
+  `CONTRIBUTING.md` 与 `README.md` 的政策：五处 `../../short-drama-*/references/…` 链接
+  （develop 的 `style-packs.md`、`film-style-visual-reference.md` 指向分镜的肢体互动手艺；
+  分镜的 `physical-interaction-craft.md` 指向视频提示词的平台审核规避词表；
+  `episode-extend-chaining.md` 指向分镜的长镜节拍；分镜 `SKILL.md` 按需知识指向 develop 的
+  武指/打斗风格子包）改为 `` `$short-drama-…` 的「小节名」（`文件名`） ``。
+  **只换链接形式，措辞与权威归属一字未动**：知识仍由其原权威技能持有，未复制内容、未建第二权威，
+  单独安装某个技能时不再出现指向缺失目录的断链。
+- 参考原文的排除项在 Windows 上失效：`tests/test_suite_anatomy.py` 用 `str(path)` 比对
+  正斜杠书写的 `EXCLUDED` 前缀，反斜杠路径永不匹配，导致「reference-run 是记录下来的创作者原文、
+  措辞不归套件改」这条政策形同虚设，两份原文被拿去 lint 并各报一条粗体收尾在标点内的红。
+  改为按 `path.relative_to(SUITE).as_posix()` 比对，并新增
+  `test_declared_reference_run_exclusion_actually_excludes` 把排除项本身钉住。
+  **两份原文未改一个字**——此前的审查报告曾把这条记成「需创作者定方向：改测试豁免还是移标点」，
+  实为测试分隔符缺陷，已更正。
 - 剧本索引器不再把文末「## 声音分层」当成非法场景标题。`short-drama-write` 要求每份剧本
   追加这一节，而 `screenplay_index.py` 把所有不匹配场景标题的 `##` 一律报
   `invalid_scene_heading`，紧随其后的引用块与条目再各报 `content_outside_scene`——一份完全
