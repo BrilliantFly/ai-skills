@@ -39,7 +39,6 @@ def run_cli(*args: str | Path) -> subprocess.CompletedProcess[str]:
         [sys.executable, str(SCRIPT), *(str(arg) for arg in args)],
         capture_output=True,
         text=True, encoding="utf-8", errors="replace",
-        encoding="utf-8",
         env=env,
     )
 

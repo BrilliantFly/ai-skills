@@ -46,7 +46,6 @@ def run_node(script: str) -> "subprocess.CompletedProcess[str]":
             check=True,
             capture_output=True,
             text=True, encoding="utf-8", errors="replace",
-            encoding="utf-8",
         )
 
 
@@ -1126,7 +1125,6 @@ class DashboardSessionTests(unittest.TestCase):
             [sys.executable, "-B", str(SCRIPT), *arguments],
             capture_output=True,
             text=True, encoding="utf-8", errors="replace",
-            encoding="utf-8",
             timeout=60,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )

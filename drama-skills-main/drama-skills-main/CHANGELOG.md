@@ -135,6 +135,14 @@
 - 测试侧文本子进程统一编码：15 个测试文件里 33 处 `subprocess.run/check_output(text=True)`
   未指定编码，与产品侧同一族问题；修完后 `node` 规则用例与 ffmpeg 测量用例在中文项目路径下
   不再崩在 reader 线程。
+  **本批自纠**：该批量替换按行判断"本行没有 `encoding=`"，撞上 `text=True` 与 `encoding=`
+  分在两行的跨行调用，在 `test_dashboard_server.py`（2 处）与 `test_episode_intake.py`（1 处）
+  造出重复关键字参数；`ast.parse` 不报（重复关键字是编译期错误而非语法错误），所以当时
+  的校验放过了它，直到真正 import 该模块才炸。已删除三处重复参数，并把批量改写的校验从
+  `ast.parse` 换成 `compile(src, path, "exec")`——校验器不够严等于没有校验。
+- 全仓基线更新：`python -m unittest discover -s tests -t .` 现为 **776 项、0 失败 0 错误、
+  44 skip**（起点是 748 项、11 failures + 7 errors）。skip 均为平台或依赖条件
+  （符号链接权限、目录描述符、node/ffmpeg 缺失等），不是被静默掩盖的失败。
 - 仓库根补 `.gitignore` 与 `.gitattributes`：属性规则此前只在 drama 包内，
   `chinese-novelist-skill-master` 的 `__pycache__/`、`.pytest_cache/` 处于"未跟踪也未忽略"状态，
   提交该包文件每次都报 CRLF 警告；现统一 `* text=auto eol=lf`，让四处副本的字节级校验与 diff
