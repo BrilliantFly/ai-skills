@@ -1611,6 +1611,11 @@ FIGHT_WEAPON_RE = re.compile(r"兵器·([^/；;]+)")
 FIGHT_PHASE_RE = re.compile(r"相位\s*=\s*([^/；;]+)")
 FIGHT_STANCE_RE = re.compile(r"姿态\s*=\s*([^/；;]+)")
 FIGHT_EXEMPT_TOKEN = "连相"
+# `- 接力：` carries the state a shot hands to the next one. Seven named
+# dimensions, at least four of them per shot; see fight-shot-budget.md §八.
+FIGHT_RELAY_ITEMS = ("姿态", "运动", "高度", "器械", "攻防权", "摄影机", "余波")
+FIGHT_RELAY_MIN = 4
+FIGHT_RELAY_PART_RE = re.compile(r"([^/=；;，、]+?)\s*=\s*([^/=]*)")
 # `- 景别/机位：中近景，门框外侧，轻微低机位。` carries the shot size first; the
 # distribution gate groups on that label and ignores the rest of the line.
 _FIGHT_FRAMING_RE = re.compile(r"[，、,].*$")
@@ -1677,6 +1682,55 @@ def _parse_fight_marker(
     if weapon in {"徒手", "无"}:
         weapon = ""
     return {"phase": phase, "stance": stance, "weapon": weapon, "exempt": exempt}
+
+
+def _parse_fight_relay(value: str, shot_id: str, errors: list[str]) -> int:
+    """Validate one shot's `- 接力：` line and return how many dimensions it fills.
+
+    Shape only: a field that is absent stays silent, so an episode written before
+    this field existed cannot start failing. What gets checked is the grammar of a
+    field the author chose to write — a blank placeholder, a dimension outside the
+    closed list, an empty value, or fewer than four dimensions would all read like a
+    handoff while handing off nothing the next shot can inherit. Whether the next
+    shot's 起点 actually honours these items is a judgement, and stays with review.
+    """
+    plain = _plain(value)
+    if not plain:
+        return 0
+    if _is_none(plain):
+        errors.append(
+            f"{shot_id}: 「- 接力：」填了空占位「{plain}」；本镜不交给下一镜就不写这一行，"
+            "要交接就按 `姿态=… / 运动=… / 高度=… / 器械=… / 攻防权=… / 摄影机=… / 余波=…` 写全"
+        )
+        return 0
+    parts = FIGHT_RELAY_PART_RE.findall(plain)
+    if not parts:
+        errors.append(
+            f"{shot_id}: 「- 接力：」没有写出任何 `维度=内容` 项；可用维度只有 "
+            + " / ".join(FIGHT_RELAY_ITEMS)
+            + f"，且至少填 {FIGHT_RELAY_MIN} 项"
+        )
+        return 0
+    filled: list[str] = []
+    for name, item in parts:
+        label = name.strip().lstrip("- ").strip()
+        if label not in FIGHT_RELAY_ITEMS:
+            errors.append(
+                f"{shot_id}: 「- 接力：」用了未登记的维度「{label}」；只能是 "
+                + " / ".join(FIGHT_RELAY_ITEMS)
+            )
+            continue
+        if not item.strip():
+            errors.append(f"{shot_id}: 「- 接力：」的「{label}」没有内容")
+            continue
+        filled.append(label)
+    if len(filled) < FIGHT_RELAY_MIN:
+        errors.append(
+            f"{shot_id}: 「- 接力：」只填了 {len(filled)} 项（{'、'.join(filled) or '无'}），"
+            f"至少 {FIGHT_RELAY_MIN} 项才可继承；缺的维度若确实没有变化，写「沿用上一镜」"
+            "而不是整项删掉"
+        )
+    return len(filled)
 
 
 def _check_fight_scene_shape(
@@ -2090,6 +2144,7 @@ def validate_documents(
             )
         if basis.parsed:
             in_frame[shot_id] = basis.declared
+        _parse_fight_relay(fields.get("接力", ""), shot_id, errors)
         fight = _parse_fight_marker(fields.get("武打", ""), shot_id, errors)
         if fight is not None:
             scene_ids = sorted(shot_scene_map.get(shot_id) or [])

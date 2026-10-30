@@ -188,5 +188,65 @@ class FightSceneShapeTests(unittest.TestCase):
         self.assertEqual(validator._entry_label("横刀（柄缠布）"), "横刀")
 
 
+class FightRelayTests(unittest.TestCase):
+    """`- 接力：` 只校写法：没写即沉默，写了就要能被下一镜接住。"""
+
+    def parse(self, value):
+        errors: list[str] = []
+        count = validator._parse_fight_relay(value, "SHOT-EP001-002", errors)
+        return count, errors
+
+    def test_absent_field_is_silent(self) -> None:
+        count, errors = self.parse("")
+        self.assertEqual(count, 0)
+        self.assertEqual(errors, [])
+
+    def test_four_items_pass(self) -> None:
+        count, errors = self.parse(
+            "姿态=右脚在前 / 运动=向画面左退 / 器械=横刀出鞘、刀背有缺口 / 攻防权=对方"
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(count, 4)
+
+    def test_all_seven_items_pass(self) -> None:
+        count, errors = self.parse(
+            "姿态=低桩 / 运动=前冲 / 高度=地面 / 器械=长枪扎老 / 攻防权=我方 /"
+            " 摄影机=手持右跟 / 余波=瓦屑仍在落"
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(count, 7)
+
+    def test_placeholder_is_rejected(self) -> None:
+        count, errors = self.parse("无")
+        self.assertEqual(count, 0)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("空占位", errors[0])
+
+    def test_unregistered_dimension_is_rejected(self) -> None:
+        count, errors = self.parse(
+            "姿态=低桩 / 心情=愤怒 / 器械=刀 / 攻防权=对方"
+        )
+        self.assertIn("心情", errors[0])
+        self.assertEqual(count, 3)
+
+    def test_empty_value_is_rejected(self) -> None:
+        count, errors = self.parse("姿态= / 运动=后退 / 器械=刀 / 攻防权=对方")
+        self.assertTrue(any("没有内容" in error for error in errors), errors)
+        self.assertEqual(count, 3)
+
+    def test_below_minimum_is_reported_with_filled_names(self) -> None:
+        count, errors = self.parse("姿态=低桩 / 器械=横刀")
+        self.assertEqual(count, 2)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("只填了 2 项", errors[0])
+        self.assertIn("沿用上一镜", errors[0])
+
+    def test_no_dimensions_at_all_is_rejected(self) -> None:
+        count, errors = self.parse("照上一镜继续")
+        self.assertEqual(count, 0)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("没有写出任何", errors[0])
+
+
 if __name__ == "__main__":
     unittest.main()
