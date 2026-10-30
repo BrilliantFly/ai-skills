@@ -37,9 +37,20 @@ BODY_TELL_RE = re.compile(
     r'(嘴角勾起|勾起一抹|眼底闪过|眸中闪过|眼中闪过|瞳孔骤缩|眉头微蹙|眉头紧锁|'
     r'心中一凛|心中一动|不由自主|深吸一口气|狠狠地|清晰地看到|深深地看了)'
 )
-SLOWED_ACTION_RE = re.compile(r'(缓缓|慢慢|轻轻|徐徐)[^，。！？]{0,6}?(劈|斩|落|抬手|出手|落刀|抬剑|踏|掠|推|抽)')
+SLOWED_RE = re.compile(r'(缓缓|慢慢|轻轻|徐徐)')
+# 裁决二（2026-10-30）：减速词只在修饰「关键接触」的那一拍被判违规，
+# 铺垫句里的单个减速词是风格（庄重、哀恸、镜头感），只提示。
+CONTACT_VERB_RE = re.compile(
+    r'(劈|斩|刺|扫|削|磕|格|撞|落刀|落剑|击中|命中|撞上|压下|递出|送出|挥出)'
+)
+SETUP_ACTION_RE = re.compile(r'(抬手|推门|走近|走近了|落座|转身|放下|起身|步入)')
 
-DEFAULTS = {'simile_per_1000': 3, 'dash_per_1000': 2, 'bare_dialog_ratio': 0.25}
+DEFAULTS = {
+    'simile_per_1000': 3,
+    'dash_per_1000': 2,
+    'bare_dialog_ratio': 0.25,
+    'max_slowed': 4,
+}
 
 
 def strip_markdown(text: str) -> str:
@@ -50,7 +61,7 @@ def strip_markdown(text: str) -> str:
     return text
 
 
-def analyse(text: str, limits: dict) -> dict:
+def analyse(text: str, limits: dict, exempt_tells: bool = False) -> dict:
     body = strip_markdown(text)
     chars = len(CJK_RE.findall(body)) or 1
     per_1000 = chars / 1000.0
@@ -78,7 +89,13 @@ def analyse(text: str, limits: dict) -> dict:
     bare_ratio = (bare / len(dialog_lines)) if dialog_lines else 0.0
 
     body_tells = len(BODY_TELL_RE.findall(body))
-    slowed = len(SLOWED_ACTION_RE.findall(body))
+    slowed_sentences = [s for s in sentences if SLOWED_RE.search(s)]
+    contact_slowed = [s for s in slowed_sentences if CONTACT_VERB_RE.search(s)]
+    consecutive_slowed = any(
+        SLOWED_RE.search(sentences[i]) and SLOWED_RE.search(sentences[i + 1])
+        for i in range(len(sentences) - 1)
+    )
+    setup_only = [s for s in slowed_sentences if s not in contact_slowed]
 
     violations = []
     if simile / per_1000 > limits['simile_per_1000']:
@@ -91,14 +108,35 @@ def analyse(text: str, limits: dict) -> dict:
         violations.append(f'{same_block_groups} 组连续三段行数相同，段落形状单调')
     if bare_ratio > limits['bare_dialog_ratio']:
         violations.append(f'裸对话标签占比 {bare_ratio:.0%}，超过 {limits["bare_dialog_ratio"]:.0%}')
+    # 裁决一：套话是填空而不是观察，删掉后回合什么都不剩——按违规处理，除非显式豁免
+    if body_tells and not exempt_tells:
+        violations.append(
+            f'身体/微表情套话 {body_tells} 处（嘴角勾起一抹、眼底闪过、瞳孔骤缩、心中一凛 等）；'
+            '锚定单位已放宽到动作、物件、距离、沉默、呼吸，套话不计入。'
+            '刻意克制或受限视角的章可用 --exempt-tells 退回提示'
+        )
+    # 裁决二：只有修饰关键接触的那一拍被判违规
+    if contact_slowed:
+        violations.append(
+            f'{len(contact_slowed)} 句把减速词用在接触上（例：「{contact_slowed[0][:24]}…」）；'
+            '力量感正是在这一拍被抹掉的，接触句改用短促动词与方向'
+        )
+    if consecutive_slowed:
+        violations.append('连续两句都带减速词：节奏被拉平成腔调，留一处即可')
+    if len(slowed_sentences) > limits['max_slowed']:
+        violations.append(
+            f'本章减速词 {len(slowed_sentences)} 处，超过 {limits["max_slowed"]}：'
+            '不再是风格选择，是口癖'
+        )
 
     notes = []
-    if body_tells:
-        notes.append(f'微表情/身体套话 {body_tells} 处命中黑名单：回看是否已被更具体的观察替代')
-    if slowed:
-        slowed_note = (f'动作被「缓缓/慢慢/轻轻」包住 {slowed} 处：关键接触前若为铺垫可留，'
-                       '命中瞬间被减速则读不出力量——此条只提示，不判违规')
-        notes.append(slowed_note)
+    if body_tells and exempt_tells:
+        notes.append(f'身体套话 {body_tells} 处（已按 --exempt-tells 豁免，仅提示）')
+    if setup_only:
+        notes.append(
+            f'铺垫类减速词 {len(setup_only)} 处未判违规（庄重、哀恸、镜头感语境是风格）；'
+            '若某处其实是接触瞬间，请改写那句'
+        )
     notes.append('排比、意象质量、留白效果需要人判，本脚本不数也不判')
 
     return {
@@ -107,7 +145,8 @@ def analyse(text: str, limits: dict) -> dict:
         'dash': dash,
         'sentences': len(sentences),
         'body_tells': body_tells,
-        'slowed': slowed,
+        'slowed': len(slowed_sentences),
+        'slowed_contact': len(contact_slowed),
         'bare_ratio': bare_ratio,
         'violations': violations,
         'notes': notes,
@@ -120,7 +159,7 @@ def report(path: Path, result: dict, report_only: bool) -> int:
     print('=' * 60)
     print(f'  比喻标记 {result["simile"]} 处 | 破折号 {result["dash"]} 处 | '
           f'裸对话标签占比 {result["bare_ratio"]:.0%} | 身体套话 {result["body_tells"]} 处 | '
-          f'减速动作 {result["slowed"]} 处')
+          f'减速词 {result["slowed"]} 处（其中接触句 {result["slowed_contact"]} 处）')
     for line in result['violations']:
         print(f'  ⚠️  {line}')
     for line in result['notes']:
@@ -140,6 +179,10 @@ def main() -> int:
     parser.add_argument('--simile-per-1000', type=float, default=DEFAULTS['simile_per_1000'])
     parser.add_argument('--dash-per-1000', type=float, default=DEFAULTS['dash_per_1000'])
     parser.add_argument('--bare-dialog-ratio', type=float, default=DEFAULTS['bare_dialog_ratio'])
+    parser.add_argument('--max-slowed', type=int, default=DEFAULTS['max_slowed'],
+                        help='本章允许的减速词总数（裁决二阈值，默认 4）')
+    parser.add_argument('--exempt-tells', action='store_true',
+                        help='按裁决一的豁免条件（刻意克制文风、受限视角）把套话降为提示')
     args = parser.parse_args()
 
     if not args.path:
@@ -149,6 +192,7 @@ def main() -> int:
         'simile_per_1000': args.simile_per_1000,
         'dash_per_1000': args.dash_per_1000,
         'bare_dialog_ratio': args.bare_dialog_ratio,
+        'max_slowed': args.max_slowed,
     }
 
     root = Path(args.path)
@@ -169,7 +213,7 @@ def main() -> int:
             print(f'错误: 读取失败 {path} - {error}')
             code = max(code, 2)
             continue
-        code = max(code, report(path, analyse(text, limits), args.report_only))
+        code = max(code, report(path, analyse(text, limits, args.exempt_tells), args.report_only))
     return code
 
 
