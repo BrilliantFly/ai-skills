@@ -253,16 +253,21 @@ def _plain(value: str) -> str:
     return value.strip().rstrip("。")
 
 
-def _state_grams(state: str, n: int = 6) -> set[str]:
+def _state_grams(state: str, n: int = 6) -> list[str]:
     """Contiguous n-character runs of a state line, whitespace removed.
 
     A keyframe that projects the shot's 起点 must not quote the 终点 verbatim;
     a shared 6-gram between the two text blocks is the mechanical trace of that
     leak. States are compared after stripping spaces and trailing punctuation so
     line wrapping in the source does not create or destroy a match.
+
+    The runs come back in 终点 order rather than as a set: the caller reports the
+    first match it finds, and a set made that quoted fragment change between two
+    runs of the same document -- same errors, same count, different excerpt --
+    which read like a regression when comparing a document before and after.
     """
     text = re.sub(r"\s+", "", _plain(state))
-    return {text[i : i + n] for i in range(len(text) - n + 1)}
+    return list(dict.fromkeys(text[i : i + n] for i in range(len(text) - n + 1)))
 
 
 def _contains_ref_token(value: str) -> bool:

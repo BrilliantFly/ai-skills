@@ -127,6 +127,36 @@
   避免匀速过渡）与时间分配句写法；分镜「唯一动作」补多人同时动作的写法（主行动者 + 其余人当前
   状态，不另起独立接触）；招式单元补「终点停在未落定瞬间」（末帧落位会逼执行端刹住动作）。
   均为 `craft_default`，不改既有字段与声源规则。
+- 武打知识层挂载（标记 `mount:wuxia-fight v1`，提交 `89af3c6`）：从外部武打资料只取**机制**，
+  新增三份 reference 与一个可选登记行，既有规则、编号与 frontmatter 一字未动，可整体摘除。
+  `short-drama-storyboard/references/martial-action-library.md` 给兵器与拳掌的主战距离、发力链、
+  接触点强弱区、回收负担、可拍招式取词，以及轻功与超常输出的可拍边界（离地须有支撑方向、落地须有
+  受荷反馈、同场连续腾空 ≤2）；`fight-shot-budget.md` 给镜容量、姿态与景别下限、连续同相位与
+  一打多的攻防权接力；`short-drama-review/references/rubric-fight-action.md` 给 B1–B5 blocker 与
+  M1–M6 major，其中两条判据借自白模预演的门禁：攻防是否共享同一接触点、去掉招式名后
+  「谁用什么攻/对方如何格挡/在哪接触/双方之后怎么弹开」四问是否答得出。
+  分镜可写可选登记行 `- 武打：兵器·X / 相位=Y / 姿态=Z`（连续同相位加 `连相` 豁免），
+  未写该字段的稿件行为完全不变；写了则新增三条机器门：相位取值与半写检测、兵器须在
+  `视觉设定.md` 建道具条目并被本镜点名、同场武打镜 ≥6 时的连续同相位/单一景别占八成/姿态下限缺失。
+  均为 `craft_default` 加可选字段，不设招数与每秒动作数量门槛。
+  明确**没有**引入外部包的多宫格 16 格=15 秒架构、绝对秒数口径与具体模型名推荐清单：三者与本套件
+  「逐镜冻结关键帧 + 单镜提示词 + 时长落在模型原生区间」的契约正面冲突，变速点仍只写剪辑单
+  `- 后期：`，速度表述仍归 `performance-action-timing.md`，相位与器械余态仍以
+  `physical-interaction-craft.md` §四§五 为唯一权威（三份新文件在文件头逐条声明冲突时以原权威为准）。
+  配套 `tests/test_fight_marker_gates.py` 14 项回归，含"未登记即沉默"的负向用例。
+
+### Fixed
+
+- 终点态泄漏门引用的片段不再随机：`creator_markdown_check.py` 的 `_state_grams()` 返回集合，
+  调用处取首个交集片段，同一份稿件两次运行会给出不同引用文字（错误条数与集合不变），
+  在改动前后逐字节比对时读起来像回归。改为按终点文本顺序去重返回，报错取最早出现的那段。
+- 断链修正：`short-drama-image-prompts/references/character-archetype-gallery.md` 把同目录的
+  `character-reference-board.md` 写成 `../character-reference-board.md`，按链接去读那份影棚模特卡
+  三段式会落空，容易退化成只读本文件——即制造第二权威。
+- 测试清单补齐：`EXPECTED_KNOWHOW` 缺记 2026-10-27 那批新增的 8 份 reference
+  （storyboard 5、video-prompts 2、image-prompts 1，含 `transitions-craft.md`、
+  `physical-interaction-craft.md`、`platform-safety-lexicon.md` 等），导致「知识落盘但清单不知道」
+  长期报红；随本批新增的 3 份一并补齐。
 
 
 

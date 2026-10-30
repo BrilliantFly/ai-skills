@@ -1,6 +1,6 @@
 # 典型人物形象原型库（按风格包，供参考板直填）
 
-> 配合 [character-reference-board.md](../character-reference-board.md) 影棚模特卡三段式使用。
+> 配合 [character-reference-board.md](character-reference-board.md) 影棚模特卡三段式使用。
 > 原型管"像什么"、style-packs.md 造型指引管"禁什么"、人物条目锚点管"这张脸"。
 > 原型只负责年代形象，不负责面部（面部永远取 `视觉设定.md` 识别锚点）。
 
