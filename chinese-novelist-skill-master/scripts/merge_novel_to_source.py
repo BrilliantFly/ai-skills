@@ -45,6 +45,47 @@ def clean_markdown(text: str) -> str:
     return '\n'.join(lines).strip()
 
 
+def extract_body(text: str) -> str:
+    """只取正文，剥掉模板里的元数据段。
+
+    `chapter-template.md` 规定每章含 `## 本章概要`、`## 正文`、`## 章节备注` 三节。合并成
+    原著时若整文件拼接，"核心事件/悬念钩子/伏笔标记"这些备注会被下游 `short-drama-novel-analyze`
+    当成原著正文读——它按行号抽取情节点与质感细节，备注里的概括会污染分析结果，
+    而且这类污染看起来完全像原文。
+    优先取 `## 正文` 一节；没有该标题时退而删掉已知的元数据小节，保留其余原文。
+    """
+    lines = text.splitlines()
+
+    def _section_bounds(heading: str):
+        start = None
+        for index, line in enumerate(lines):
+            if line.strip().lstrip('#').strip() == heading and line.lstrip().startswith('#'):
+                start = index
+                continue
+            if start is not None and line.lstrip().startswith('## '):
+                return start, index
+        return start, len(lines)
+
+    start, end = _section_bounds('正文')
+    if start is not None:
+        kept = lines[start + 1:end]
+        title = next((line for line in lines if line.lstrip().startswith('# ')), None)
+        body = '\n'.join(kept).strip()
+        body = re.sub(r'^-{3,}$', '', body, flags=re.M).strip()
+        return (f'{title}\n\n{body}' if title else body)
+
+    drop = {'本章概要', '章节备注', '写作备注', '概要'}
+    kept_lines = []
+    skipping = False
+    for line in lines:
+        if line.lstrip().startswith('#'):
+            heading = line.strip().lstrip('#').strip()
+            skipping = heading in drop
+        if not skipping:
+            kept_lines.append(line)
+    return '\n'.join(kept_lines).strip()
+
+
 def merge_project(project_dir: Path, out_path: Path) -> dict:
     chapters = find_chapters(project_dir)
     if not chapters:
@@ -53,7 +94,7 @@ def merge_project(project_dir: Path, out_path: Path) -> dict:
     parts = []
     total_chars = 0
     for f in chapters:
-        body = clean_markdown(f.read_text(encoding='utf-8'))
+        body = clean_markdown(extract_body(f.read_text(encoding='utf-8')))
         # 确保章节标题行以"第X章"开头，便于 novel_index.py 切分
         if not body.startswith('第') and not CHAPTER_RE.match(body):
             title = CHAPTER_RE.search(f.stem)

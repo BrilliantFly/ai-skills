@@ -147,7 +147,7 @@ novels/
 
 ## 📸 效果展示
 
-### 第一步：7 问逐一确认
+### 第一步：8 问逐一确认
 
 AI 逐一询问问题，你用上下箭头选择选项：
 
@@ -222,9 +222,13 @@ AI 生成完整大纲和人物档案后，展示给你确认：
 | `outline-template.md` | 大纲模板（章节规划、悬念线） |
 | `character-template.md` | 人物档案模板 |
 | `chapter-template.md` | 章节文件模板 |
+| `scene-template.md` | 场景设定模板（`02-场景设定.md` 的唯一事实源） |
+| `style-era-guide.md` | 文风与年代设定指南（六种文风表、POV、年代纪律） |
+| `visual-settings-mapping.md` | 小说设定 → 短剧视觉设定的 12 行映射（交 `short-drama*` 产线） |
+| `wuxia-prose.md` | 武侠文字呈现：出招节奏、代价账目、视角与旁观、身法与空间、古典语感（不碰镜头与相位） |
 
 ---
 
 ## ⚖️ 许可
 
-MIT
+MIT，全文见仓库根 `LICENSE` 文件。

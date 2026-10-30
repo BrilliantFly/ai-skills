@@ -5,6 +5,7 @@
 检查指定章节文件的字数，低于3000字时提示需要扩充
 """
 
+import fnmatch
 import os
 import re
 import sys
@@ -83,13 +84,21 @@ def check_chapter(file_path: str, min_words: int = 3000) -> dict:
 
 
 def check_all_chapters(directory: str, pattern: str = '第*.md', min_words: int = 3000) -> list:
-    """检查目录下所有符合模式的章节文件"""
+    """检查目录下所有符合模式的章节文件
+
+    递归查找：分卷写作的项目把章节放在 `第一卷/第03章.md` 这类子目录里，
+    只扫顶层会静默少查一整卷——而"没有章节"与"章节全部达标"在退出码上必须不同。
+    """
     dir_path = Path(directory)
     if not dir_path.exists():
         print(f'错误: 目录不存在 - {directory}')
         return []
 
-    chapter_files = sorted(dir_path.glob(pattern))
+    candidates = [
+        path for path in dir_path.rglob('*.md')
+        if not path.name.startswith('.') and fnmatch.fnmatch(path.name, pattern)
+    ]
+    chapter_files = sorted(candidates)
     results = []
 
     for chapter_file in chapter_files:
@@ -99,11 +108,11 @@ def check_all_chapters(directory: str, pattern: str = '第*.md', min_words: int 
     return results
 
 
-def print_results(results: list, min_words: int = 3000):
-    """打印检查结果"""
+def print_results(results: list, min_words: int = 3000) -> int:
+    """打印检查结果，返回不足章节的数量（供退出码使用）"""
     if not results:
         print('没有找到章节文件')
-        return
+        return 0
 
     total_words = 0
     passed = 0
@@ -142,9 +151,17 @@ def print_results(results: list, min_words: int = 3000):
         print('   - 补充背景故事')
         print(f'\n   参考: references/content-expansion.md')
 
+    return failed
 
-def main():
-    """主函数"""
+
+def main() -> int:
+    """主函数
+
+    退出码：0 = 全部达标；1 = 有章节不足；2 = 用法或路径错误。
+    此前无论结果如何都返回 None（进程退出码恒 0），脚本因此当不了门——
+    在流水线或交付前检查里，失败的章节会被当成通过。
+    `最小字数` 传 0 表示只报告字数、不做达标判定（创作者明确要求不限字数时用）。
+    """
     min_words = 3000
 
     if len(sys.argv) < 2:
@@ -157,22 +174,30 @@ def main():
         print('  python check_chapter_wordcount.py novels/故事/第01章.md 3500')
         print('  python check_chapter_wordcount.py --all novels/故事')
         print('  python check_chapter_wordcount.py --all novels/故事 3500')
-        return
+        print('  python check_chapter_wordcount.py --all novels/故事 0   # 只统计，不判定')
+        print('')
+        print('退出码: 0 全部达标 | 1 有章节不足 | 2 用法或路径错误')
+        return 2
 
     if sys.argv[1] == '--all':
         if len(sys.argv) < 3:
             print('错误: 使用 --all 时需要指定目录路径')
-            return
+            return 2
         directory = sys.argv[2]
         min_words = int(sys.argv[3]) if len(sys.argv) > 3 else 3000
         results = check_all_chapters(directory, min_words=min_words)
-        print_results(results, min_words)
+        if not Path(directory).exists():
+            return 2
+        return 1 if print_results(results, min_words) > 0 else 0
     else:
         file_path = sys.argv[1]
         min_words = int(sys.argv[2]) if len(sys.argv) > 2 else 3000
         result = check_chapter(file_path, min_words)
-        print_results([result], min_words)
+        if not result['exists']:
+            print_results([result], min_words)
+            return 2
+        return 1 if print_results([result], min_words) > 0 else 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
