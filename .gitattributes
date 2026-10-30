@@ -1,0 +1,16 @@
+# 与 drama 包内那份保持同一策略，并把它扩展到仓库根（此前 chinese-novelist 的文件
+# 没有属性规则，每次提交都报 "CRLF will be replaced by LF"，让 diff 与全树校验平白多噪声）。
+# 统一：入库按 LF 规范化，签出也写 LF；跨平台的字节级校验（四处副本 MD5）因此才稳定。
+* text=auto eol=lf
+
+# 媒体与压缩包不做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.mp4 binary
+*.webp binary
+*.zip binary
+*.gz binary
+*.xz binary
+*.pyc binary

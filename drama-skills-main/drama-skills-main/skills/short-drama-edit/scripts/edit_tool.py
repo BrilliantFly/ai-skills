@@ -869,11 +869,14 @@ def _require(name: str) -> str:
 
 
 def probe_duration(media: Path) -> float:
+    # ffmpeg/ffprobe 的输出按 UTF-8 写，而 Windows 上 `text=True` 不带 encoding 时会用
+    # 系统 ANSI 代码页解码：项目路径与文件名是中文，一条含中文的报错就能在 reader 线程
+    # 里抛 UnicodeDecodeError，把"读不出时长"变成"进程崩溃"。以下所有文本管道统一显式编码。
     probe = _require("ffprobe")
     result = subprocess.run(
         [probe, "-v", "error", "-show_entries", "format=duration",
          "-of", "default=nw=1:nk=1", str(media)],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
     )
     if result.returncode != 0:
         raise EditError(f"ffprobe 读不出时长: {media} ({result.stderr.strip()})")
@@ -886,7 +889,7 @@ def probe_stream(media: Path) -> dict[str, Any]:
         [probe, "-v", "error", "-select_streams", "v:0", "-show_entries",
          "stream=width,height,r_frame_rate", "-show_entries", "format=duration",
          "-of", "json", str(media)],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
     )
     if result.returncode != 0:
         raise EditError(f"ffprobe 读不出流信息: {media} ({result.stderr.strip()})")
@@ -923,7 +926,7 @@ def probe_audio(media: Path) -> Optional[tuple[int, str]]:
     result = subprocess.run(
         [probe, "-v", "error", "-select_streams", "a:0", "-show_entries",
          "stream=sample_rate,channels,channel_layout", "-of", "json", str(media)],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
     )
     streams = json.loads(result.stdout or "{}").get("streams") if result.returncode == 0 else None
     if not streams:
@@ -2106,7 +2109,7 @@ def _loudnorm_filter(ffmpeg: str, media: Path, target: float) -> str:
     result = subprocess.run(
         [ffmpeg, "-hide_banner", "-nostats", "-i", str(media),
          "-af", f"loudnorm={common}:print_format=json", "-f", "null", "-"],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
     )
     measured = _last_json_object(result.stderr)
     required = ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")
@@ -2247,7 +2250,7 @@ def _render_remotion_overlay(
         [npx, "remotion", "render", REMOTION_COMPOSITION, str(overlay),
          f"--props={props}", "--log=error",
          f"--concurrency={max(1, concurrency)}"],
-        cwd=str(workspace), capture_output=True, text=True, check=False,
+        cwd=str(workspace), capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
     )
     if result.returncode != 0 or not overlay.is_file():
         raise EditError(
@@ -2776,7 +2779,7 @@ def verify(
     result = subprocess.run(
         [ffmpeg, "-hide_banner", "-nostats", "-i", str(final),
          "-af", "loudnorm=print_format=json", "-f", "null", "-"],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
     )
     measured = _last_json_object(result.stderr)
     if measured and "input_i" in measured:
@@ -3013,7 +3016,7 @@ def _last_json_object(text: str) -> Optional[dict[str, Any]]:
 
 
 def _run(command: Sequence[str]) -> None:
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
     if result.returncode != 0:
         raise EditError(f"命令失败: {' '.join(command[:6])}…\n{result.stderr.strip()}")
 

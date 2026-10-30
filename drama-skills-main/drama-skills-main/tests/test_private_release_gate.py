@@ -42,7 +42,7 @@ class PrivateReleaseGateTests(unittest.TestCase):
     def test_configured_terms_are_loaded_without_echoing_their_contents(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             terms = Path(directory) / "terms.txt"
-            terms.write_text("first-local-term\n# note\nsecond-local-term\n")
+            terms.write_text("first-local-term\n# note\nsecond-local-term\n", encoding="utf-8")
             environment = {REQUIRE_ENV: "1", TERMS_FILE_ENV: str(terms)}
             with patch.dict(os.environ, environment, clear=True):
                 self.assertEqual(

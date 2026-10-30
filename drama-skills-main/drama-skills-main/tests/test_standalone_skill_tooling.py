@@ -43,7 +43,7 @@ class StandaloneSkillToolingTests(unittest.TestCase):
                 env=env,
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
 
     def test_every_skill_runs_a_selftest_when_copied_alone(self) -> None:

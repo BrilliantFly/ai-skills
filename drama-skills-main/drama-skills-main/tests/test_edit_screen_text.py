@@ -192,7 +192,7 @@ class ScreenTextPlacementTests(unittest.TestCase):
             manifest = json.loads((edit.REMOTION_SOURCE / "package.json").read_text(encoding="utf-8"))
             for name in manifest["dependencies"]:
                 (workspace / "node_modules" / name).mkdir(parents=True)
-                (workspace / "node_modules" / name / "package.json").write_text("{}")
+                (workspace / "node_modules" / name / "package.json").write_text("{}", encoding="utf-8")
             captured = {}
 
             def fake_run(command, **_):
@@ -245,7 +245,7 @@ class ScreenTextPlacementTests(unittest.TestCase):
             for installed in ((), ("remotion", "@remotion/cli", "react", "react-dom")):
                 for name in installed:
                     (workspace / "node_modules" / name).mkdir(parents=True, exist_ok=True)
-                    (workspace / "node_modules" / name / "package.json").write_text("{}")
+                    (workspace / "node_modules" / name / "package.json").write_text("{}", encoding="utf-8")
                 with self.subTest(installed=installed), \
                         self.assertRaises(edit.EditError) as raised:
                     edit._render_remotion_overlay(
@@ -451,7 +451,7 @@ class SoundEffectTests(unittest.TestCase):
                 result = subprocess.run(
                     ["ffmpeg", "-hide_banner", "-ss", str(start), "-t", str(length), "-i", str(media),
                      "-af", f"{band},volumedetect", "-f", "null", "-"],
-                    capture_output=True, text=True)
+                    capture_output=True, text=True, encoding="utf-8", errors="replace")
                 return float(re.search(r"mean_volume: (\S+) dB", result.stderr).group(1))
 
             before, during, after = (level(mixed, 0.5, 0.8), level(mixed, 1.6, 0.4),
@@ -470,7 +470,7 @@ class OverlayRulesTests(unittest.TestCase):
     def run_rules(self, script: str):
         program = f"import * as rules from {json.dumps(RULES.as_uri())};\n{script}"
         result = subprocess.run(["node", "--input-type=module", "-e", program],
-                                capture_output=True, text=True, check=True)
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", check=True)
         return json.loads(result.stdout)
 
     def test_family_check_on_a_machine_whose_cjk_fallback_is_the_requested_font(self):

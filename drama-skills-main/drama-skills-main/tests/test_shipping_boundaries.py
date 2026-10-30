@@ -156,7 +156,7 @@ class ShippingBoundaryTests(unittest.TestCase):
             cwd=SUITE,
             check=True,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
         ).stdout.splitlines()
         findings = [
             relative
@@ -171,7 +171,10 @@ class ShippingBoundaryTests(unittest.TestCase):
         leaks: list[str] = []
         seen: dict[str, set[str]] = {}
         for path in shipped_text_files():
-            relative = str(path.relative_to(SUITE))
+            # 键与比对形式必须一致：ALLOWED_PROVIDER_URLS 的键是正斜杠路径，
+            # 而 `str(path.relative_to(SUITE))` 在 Windows 上是反斜杠——于是每一条
+            # 已声明的 URL 都被当成泄漏，这道隐私门在非 POSIX 平台上等于永久失败。
+            relative = path.relative_to(SUITE).as_posix()
             for found in url.findall(path.read_text(encoding="utf-8")):
                 seen.setdefault(relative, set()).add(found)
                 if found not in ALLOWED_PROVIDER_URLS.get(relative, set()):

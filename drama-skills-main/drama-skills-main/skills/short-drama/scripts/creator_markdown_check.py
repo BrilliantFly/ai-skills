@@ -1619,6 +1619,16 @@ FIGHT_RELAY_PART_RE = re.compile(r"([^/=；;，、]+?)\s*=\s*([^/=]*)")
 # `- 景别/机位：中近景，门框外侧，轻微低机位。` carries the shot size first; the
 # distribution gate groups on that label and ignores the rest of the line.
 _FIGHT_FRAMING_RE = re.compile(r"[，、,].*$")
+# 景别档按标签里**最先出现**的景别词归并。实测一集 26 镜写出 21 种复合标签
+# （「中景带纵深」「低机位中景」「特写偏中景」…），按原样统计每档各一笔，
+# 扎堆永远测不出来；标签开头的景别词才是这一镜的主景别。
+FIGHT_FRAMING_BANDS = ("大特写", "特写", "近景", "中近景", "中景", "中远景", "远景", "大全景", "全景")
+
+
+def _framing_bucket(value: str) -> str:
+    label = _FIGHT_FRAMING_RE.sub("", _plain(value)).strip()
+    found = [(label.find(band), band) for band in FIGHT_FRAMING_BANDS if band in label]
+    return min(found)[1] if found else label
 
 
 def _entry_label(name: str) -> str:
@@ -1645,6 +1655,9 @@ def _parse_fight_marker(
         )
         return None
     exempt = FIGHT_EXEMPT_TOKEN in plain
+    # 「连相」可以写成独立一段，也可以按文档说的追加在行末（`姿态=低桩 连相`）；
+    # 先摘掉再解析各段，否则它会粘在姿态值上被判成"取值不在表内"。
+    plain = plain.replace(FIGHT_EXEMPT_TOKEN, "").strip().strip("/；;").strip()
     phase_match = FIGHT_PHASE_RE.search(plain)
     if phase_match is None:
         errors.append(
@@ -1766,22 +1779,25 @@ def _check_fight_scene_shape(
                     f"起手之后该到接触，接触之后该到后果。确要连续同相位（如三连格挡推进、"
                     f"余震连镜）就在这几镜的「- 武打：」末尾追加 `{FIGHT_EXEMPT_TOKEN}`"
                 )
-        if len(items) < 6:
-            continue
-        buckets = [item[3] for item in items if item[3]]
-        if len(buckets) < len(items):
-            continue  # 景别字段缺失的镜不归并统计，交给既有字段检查
+
+    # 分布类判定按**全集**登记的武打镜统计，不按场。实测教训：一集的武打常散在多个场次
+    # （《针与剑》EP001：18 个攻防镜分布在 8 场，单场最多 5 镜），按场聚合的 ≥6 门槛
+    # 永远不触发，等于门形同虚设；相位连续性仍按场判，跨场相邻镜头不该算连续。
+    framed = [framing for *_, framing in records if framing]
+    if len(records) >= 6 and len(framed) == len(records):
         counts: dict[str, int] = {}
-        for bucket in buckets:
+        for bucket in framed:
             counts[bucket] = counts.get(bucket, 0) + 1
         top_bucket, top_count = max(counts.items(), key=lambda item: item[1])
-        if top_count * 5 >= len(items) * 4:
+        if top_count * 5 >= len(records) * 4:
             errors.append(
-                f"{scene_key}: 本场武打镜 {len(items)} 镜里有 {top_count} 镜都是「{top_bucket}」；"
-                "整场同一档景别既读不清接触点，也读不清受击表情，相邻镜会看起来只是换姿势。"
-                "把其中一至两镜改成近景特写或俯仰机位，让至少一次接触与一次受击落在读得到的景别里"
+                f"本集武打镜 {len(records)} 镜里有 {top_count} 镜的景别都写作「{top_bucket}」"
+                f"（占 {top_count / len(records):.0%}）；同一档景别占掉八成时，接触点与受击表情"
+                "都读不到，相邻镜也只是换姿势。把其中一至两镜改成近景特写或俯仰机位，"
+                "让至少一次接触与一次受击落在读得到的景别里"
             )
-        stances = [item[2]["stance"] for item in items]
+    stances = [record[3]["stance"] for record in records]
+    if len(records) >= 6:
         missing = [
             stance
             for stance in ("低桩", "腾空", "转身", "特写")
@@ -1789,7 +1805,7 @@ def _check_fight_scene_shape(
         ]
         if missing:
             errors.append(
-                f"{scene_key}: 本场武打镜 {len(items)} 镜完全没有"
+                f"本集武打镜 {len(records)} 镜完全没有"
                 f"{'、'.join(missing)}姿态；下限按 ⌈n/5⌉ 低桩、⌈n/8⌉ 腾空、⌈n/5⌉ 转身、"
                 "⌈n/8⌉ 近景特写取值。凑不出就删一镜过场，不要为了配额新增动作或腾空"
             )
@@ -2154,7 +2170,7 @@ def validate_documents(
                     shot_id,
                     scene_ids[0] if scene_ids else shot_id,
                     fight,
-                    _FIGHT_FRAMING_RE.sub("", _plain(fields.get("景别/机位", ""))).strip(),
+                    _framing_bucket(fields.get("景别/机位", "")),
                 )
             )
             # 兵器一致性是道具连续性：武打镜点名的兵器必须是《视觉设定.md》里的道具条目，

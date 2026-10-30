@@ -105,6 +105,40 @@
   `test_declared_reference_run_exclusion_actually_excludes` 把排除项本身钉住。
   **两份原文未改一个字**——此前的审查报告曾把这条记成「需创作者定方向：改测试豁免还是移标点」，
   实为测试分隔符缺陷，已更正。
+- 武打分布门的统计口径修正（实测发现）：景别扎堆与姿态下限原先**按场聚合且要求单场 ≥6 镜**，
+  而《针与剑》EP001 的 18 个攻防镜散在 8 场、单场最多 5 镜——门槛永远不触发，门形同虚设。
+  现按**全集**登记的武打镜聚合（≥6 才判），相位连续性仍只在场内判（跨场相邻两镜不算连续）。
+  景别标签同时按**主景别档归并**（`低机位中景`、`中景带纵深` 同算中景，取标签中最先出现的景别词）：
+  该集 26 镜写出 21 种复合标签，不归并时扎堆同样测不出来。`fight-shot-budget.md` §二/§五/§七、
+  `short-drama` 第 11 项、`rubric-fight-action.md` M3 与 review 取用行同步为全集口径。
+- `连相` 豁免写法解析 bug：文档要求"在 `- 武打：` 行末追加 `连相`"，解析器却把姿态值取到行尾，
+  `姿态=低桩 连相` 被判成"取值不在表内"——照文档写反而吃错。现先摘除豁免词再解析各段，
+  行末追加与独立一段两种写法都可用，并补回归用例。
+- `edit_tool.py` 的 ffmpeg/ffprobe/npx 文本管道未指定编码：7 处 `subprocess.run(text=True)` 在
+  Windows 按系统 ANSI 代码页解码子进程输出，而项目路径与文件名是中文——一条含中文的 ffmpeg
+  报错就能在 reader 线程抛 `UnicodeDecodeError`，把"探测失败"变成"进程崩溃"。统一显式
+  `encoding="utf-8", errors="replace"`。此前该缺陷被"本机没装 ffmpeg"掩盖。
+- 测试侧同类编码：`test_simple_lifecycle.py`、`test_edit_screen_text.py`、
+  `test_edit_measurements.py`、`test_private_release_gate.py` 共 15 处 `read_text()/write_text()`
+  未指定编码，UTF-8 中文文件名与交付清单被按 GBK 读出乱码，表现为断言两侧
+  `剧集/EP001/notes.md` 与 `缯/EP001/notes.md` 不一致——是测试读错，不是产品写错
+  （产品侧写入均带 `encoding="utf-8"`）。
+- 测试侧路径分隔符：`test_shipping_boundaries.py` 用 `str(relative)` 与正斜杠书写的 URL 白名单键
+  比对，Windows 上每条已声明 URL 都被判成泄漏（误报列表 3409 字符），第二处
+  `seen == ALLOWED_PROVIDER_URLS` 同样不可能相等；改用 `as_posix()`。
+- 别名防护用例不再伪装失败：`os.symlink` 在 Windows 需开发者模式或管理员权限（WinError 1314），
+  改为无权限时 `skipTest` 并写明原因——它测的是"同一目录换种拼法也不能覆盖导出"的真防护，
+  本机没权限不等于该防护失效。同类处理用于"路径读取器与描述符读取器实现一致"那条比对：
+  Windows 不能用普通 `O_RDONLY` 打开目录（缺 FILE_FLAG_BACKUP_SEMANTICS），而产品在 Windows 上
+  本就按校验过的路径钉住而非目录描述符（CI 的 `windows-install` 说明里写明），故该用例
+  是 POSIX 专属，改为显式 `skipTest` 而不是留在红名单里。
+- 测试侧文本子进程统一编码：15 个测试文件里 33 处 `subprocess.run/check_output(text=True)`
+  未指定编码，与产品侧同一族问题；修完后 `node` 规则用例与 ffmpeg 测量用例在中文项目路径下
+  不再崩在 reader 线程。
+- 仓库根补 `.gitignore` 与 `.gitattributes`：属性规则此前只在 drama 包内，
+  `chinese-novelist-skill-master` 的 `__pycache__/`、`.pytest_cache/` 处于"未跟踪也未忽略"状态，
+  提交该包文件每次都报 CRLF 警告；现统一 `* text=auto eol=lf`，让四处副本的字节级校验与 diff
+  不被换行噪声干扰。
 - 剧本索引器不再把文末「## 声音分层」当成非法场景标题。`short-drama-write` 要求每份剧本
   追加这一节，而 `screenplay_index.py` 把所有不匹配场景标题的 `##` 一律报
   `invalid_scene_heading`，紧随其后的引用块与条目再各报 `content_outside_scene`——一份完全

@@ -647,7 +647,7 @@ class ScreenplayIndexTests(unittest.TestCase):
                 ],
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -718,7 +718,7 @@ class ScreenplayIndexTests(unittest.TestCase):
             result = subprocess.run(
                 [sys.executable, str(SCRIPT), str(source),
                  "--output", str(output), "--speaker", "角色甲"],
-                check=False, capture_output=True, text=True,
+                check=False, capture_output=True, text=True, encoding="utf-8", errors="replace",
             )
             self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -751,7 +751,7 @@ class ScreenplayIndexTests(unittest.TestCase):
                 output = root / "index.jsonl"
                 subprocess.run(
                     [sys.executable, str(SCRIPT), str(source), "--output", str(output)],
-                    check=True, capture_output=True, text=True,
+                    check=True, capture_output=True, text=True, encoding="utf-8", errors="replace",
                 )
                 codes = [
                     row["issue_code"]

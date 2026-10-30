@@ -99,7 +99,7 @@ class InstallationResolutionTests(unittest.TestCase):
                 env=env,
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
             self.assertEqual(initialized.returncode, 0, initialized.stderr)
             self.assertEqual(json.loads(initialized.stdout)["project"]["title"], "失物登记")
@@ -112,7 +112,7 @@ class InstallationResolutionTests(unittest.TestCase):
                 env=env,
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
             self.assertEqual(status.returncode, 0, status.stderr)
             self.assertEqual(json.loads(status.stdout)["project_root"], str(project.resolve()))
@@ -145,7 +145,7 @@ class InstallationResolutionTests(unittest.TestCase):
                 env=env,
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
             self.assertEqual(built.returncode, 0, built.stderr)
             self.assertEqual(json.loads(built.stdout)["chapter_count"], 3)
@@ -155,7 +155,7 @@ class InstallationResolutionTests(unittest.TestCase):
                 env=env,
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
             self.assertEqual(verified.returncode, 0, verified.stderr)
             self.assertTrue(json.loads(verified.stdout)["verified"])

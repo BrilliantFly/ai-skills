@@ -1197,7 +1197,7 @@ class ProviderRuntimeTests(unittest.TestCase):
             [sys.executable, str(SCRIPT), "--selftest"],
             check=False,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
@@ -1210,7 +1210,7 @@ class ProviderRuntimeTests(unittest.TestCase):
             env=env,
             check=False,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
         )
         self.assertEqual(failed.returncode, 1)
         public = json.loads(failed.stdout)

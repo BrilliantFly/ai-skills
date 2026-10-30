@@ -24,7 +24,7 @@ class EditMeasurementsTests(unittest.TestCase):
             root = Path(directory)
             cuts = [edit.Cut(f"CUT-{i}", "shot", f"MOTION-{i}", f"{i}.mp4",
                              0, 2, 2, (), {}, i) for i in (1, 2)]
-            (root / edit.MOTION_DOCUMENT).write_text("## MOTION-1\n\n## MOTION-2\n")
+            (root / edit.MOTION_DOCUMENT).write_text("## MOTION-1\n\n## MOTION-2\n", encoding="utf-8")
             for i in (1, 2):
                 (root / f"{i}.mp4").touch()
             first = {"width": 1344, "height": 768, "fps": 24, "duration": 5}
@@ -575,7 +575,7 @@ class StillRenderTests(unittest.TestCase):
             timestamps = json.loads(subprocess.check_output(
                 ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_frames",
                  "-show_entries", "frame=best_effort_timestamp_time", "-of", "json", str(film)],
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             ))["frames"]
             self.assertEqual(len(timestamps), 4 * self.FPS)
             self.assertAlmostEqual(float(timestamps[0]["best_effort_timestamp_time"]), 0, places=5)
@@ -589,7 +589,7 @@ class StillRenderTests(unittest.TestCase):
             def peak(start, length):
                 result = subprocess.run(
                     ["ffmpeg", "-hide_banner", "-ss", str(start), "-t", str(length), "-i", str(film),
-                     "-af", "volumedetect", "-f", "null", "-"], capture_output=True, text=True)
+                     "-af", "volumedetect", "-f", "null", "-"], capture_output=True, text=True, encoding="utf-8", errors="replace")
                 return float(re.search(r"max_volume: (\S+) dB", result.stderr).group(1))
 
             dubbed, before, after = peak(0.7, 0.4), peak(0.0, 0.4), peak(2.2, 1.6)
@@ -641,7 +641,7 @@ class StillRenderTests(unittest.TestCase):
                 result = subprocess.run(
                     ["ffmpeg", "-hide_banner", "-i", str(film), "-af",
                      f"{band},atrim={start}:{start + length},volumedetect", "-f", "null", "-"],
-                    capture_output=True, text=True)
+                    capture_output=True, text=True, encoding="utf-8", errors="replace")
                 return float(re.search(r"max_volume: (\S+) dB", result.stderr).group(1))
 
             low, high = "lowpass=f=800,lowpass=f=800", "highpass=f=2000,highpass=f=2000"
@@ -699,7 +699,7 @@ class StillRenderTests(unittest.TestCase):
                 result = subprocess.run(
                     ["ffmpeg", "-hide_banner", "-i", str(film), "-af",
                      f"atrim={start}:{start + length},volumedetect", "-f", "null", "-"],
-                    capture_output=True, text=True)
+                    capture_output=True, text=True, encoding="utf-8", errors="replace")
                 return float(re.search(r"max_volume: (\S+) dB", result.stderr).group(1))
 
             quiet_from = max(0.0, video_at - 1.0)
@@ -737,7 +737,7 @@ class StillRenderTests(unittest.TestCase):
                                burn_subtitles=False)["成片"]
             streams = json.loads(subprocess.check_output([
                 "ffprobe", "-v", "error", "-show_streams", "-of", "json", film,
-            ], text=True))["streams"]
+            ], text=True, encoding="utf-8", errors="replace"))["streams"]
             for stream in streams:
                 self.assertAlmostEqual(float(stream["duration"]), 3, delta=0.05)
             pcm = subprocess.check_output([
@@ -772,7 +772,7 @@ class StillRenderTests(unittest.TestCase):
             measured = edit.verify(project.episode, cuts, delivery, project.root)
             result = subprocess.run(
                 ["ffmpeg", "-hide_banner", "-i", str(film), "-af", "atrim=4.85:4.95,volumedetect",
-                 "-f", "null", "-"], capture_output=True, text=True)
+                 "-f", "null", "-"], capture_output=True, text=True, encoding="utf-8", errors="replace")
             tail = float(re.search(r"max_volume: (\S+) dB", result.stderr).group(1))
         self.assertGreater(tail, -25, "配音的最后 0.15 秒被按画面取整截掉了")
         (line,) = measured["配音落点"]

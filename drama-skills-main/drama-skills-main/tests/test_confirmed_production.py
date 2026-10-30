@@ -1539,7 +1539,7 @@ class ConfirmedProductionTests(unittest.TestCase):
                 [sys.executable, str(PRODUCTION_SCRIPT), "prepare", str(root), "--job", str(job)],
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
             self.assertEqual(prepared.returncode, 0, prepared.stderr)
             preview = json.loads(prepared.stdout)
@@ -1556,7 +1556,7 @@ class ConfirmedProductionTests(unittest.TestCase):
                 ],
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
             self.assertEqual(confirmed.returncode, 0, confirmed.stderr)
             executed = subprocess.run(
@@ -1572,7 +1572,7 @@ class ConfirmedProductionTests(unittest.TestCase):
                 ],
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 env={**os.environ, "PYTHONIOENCODING": "cp1252"},
             )
             self.assertEqual(executed.returncode, 0, executed.stderr)
@@ -1588,7 +1588,7 @@ class ConfirmedProductionTests(unittest.TestCase):
                 ],
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
             self.assertEqual(status.returncode, 0, status.stderr)
             self.assertEqual(json.loads(status.stdout)["state"], "succeeded")

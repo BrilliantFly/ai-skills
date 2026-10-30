@@ -64,8 +64,8 @@ class SimpleLifecycleTests(unittest.TestCase):
     def test_init_creates_small_state_and_creator_directories(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self.make_project(directory)
-            state = json.loads((root / ".short-drama/state.json").read_text())
-            project = json.loads((root / "short-drama.json").read_text())
+            state = json.loads((root / ".short-drama/state.json").read_text(encoding="utf-8"))
+            project = json.loads((root / "short-drama.json").read_text(encoding="utf-8"))
             self.assertEqual(state["schema_version"], "2.0")
             self.assertEqual(state["artifacts"], {})
             self.assertNotIn("current_checkpoint", project)
@@ -98,7 +98,7 @@ class SimpleLifecycleTests(unittest.TestCase):
             [sys.executable, str(SCRIPT), "--help"],
             check=False,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
         )
         self.assertEqual(result.returncode, 0)
         for command in ("publish", "accept", "review", "package", "verify"):
@@ -161,7 +161,7 @@ class SimpleLifecycleTests(unittest.TestCase):
             source.write_text('{"episode_id":"EP001","changed":true}\n', encoding="utf-8")
             status = project_tool.project_status(root)
             self.assertEqual(status["artifacts"]["EP001:script"], "update_needed")
-            persisted = json.loads((root / ".short-drama/state.json").read_text())
+            persisted = json.loads((root / ".short-drama/state.json").read_text(encoding="utf-8"))
             self.assertNotIn("stale", json.dumps(persisted))
 
     def test_output_edit_invalidates_acceptance_on_read_without_rewriting_state(self) -> None:
@@ -183,7 +183,7 @@ class SimpleLifecycleTests(unittest.TestCase):
             self.publish_script(root)
             self.approve_script(root)
             self.publish_script(root, text="# 第一集\n第二版\n")
-            state = json.loads((root / ".short-drama/state.json").read_text())
+            state = json.loads((root / ".short-drama/state.json").read_text(encoding="utf-8"))
             record = state["artifacts"]["EP001:script"]
             self.assertIsNone(record["acceptance"])
             self.assertIsNone(record["review"])
@@ -336,7 +336,7 @@ class SimpleLifecycleTests(unittest.TestCase):
             target.write_text("legacy", encoding="utf-8")
             digest = hashlib.sha256(target.read_bytes()).hexdigest()
             state_path = root / ".short-drama/state.json"
-            legacy = json.loads(state_path.read_text())
+            legacy = json.loads(state_path.read_text(encoding="utf-8"))
             legacy["schema_version"] = "1.0.0-draft"
             legacy["artifacts"] = {
                 "EP001:script": {
@@ -359,11 +359,11 @@ class SimpleLifecycleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = self.make_project(directory)
             state_path = root / ".short-drama/state.json"
-            state = json.loads(state_path.read_text())
+            state = json.loads(state_path.read_text(encoding="utf-8"))
             state["schema_version"] = "1.0.0-draft"
             project_tool.atomic_json(state_path, state)
             self.publish_script(root)
-            migrated = json.loads(state_path.read_text())
+            migrated = json.loads(state_path.read_text(encoding="utf-8"))
             self.assertEqual(migrated["schema_version"], "2.0")
             self.assertNotIn("active_transaction", migrated)
 
@@ -380,7 +380,7 @@ class SimpleLifecycleTests(unittest.TestCase):
             def digest(path: Path) -> str:
                 return hashlib.sha256(path.read_bytes()).hexdigest()
             state_path = root / ".short-drama/state.json"
-            legacy = json.loads(state_path.read_text())
+            legacy = json.loads(state_path.read_text(encoding="utf-8"))
             legacy["schema_version"] = "1.0.0-draft"
             legacy["artifacts"] = {
                 "EP001:script": {
@@ -527,8 +527,10 @@ class SimpleLifecycleTests(unittest.TestCase):
                 root, episode="EP001", includes=["剧集/EP001/screenplay.md"]
             )
             delivery = root / result["delivery_root"]
-            (delivery / "artifacts/剧集/EP001/screenplay.md").write_text("tampered")
-            (delivery / "extra.md").write_text("extra")
+            (delivery / "artifacts/剧集/EP001/screenplay.md").write_text(
+                "tampered", encoding="utf-8"
+            )
+            (delivery / "extra.md").write_text("extra", encoding="utf-8")
             verified = project_tool.verify_delivery_package(root, episode="EP001")
             self.assertEqual(verified["status"], "tampered")
             self.assertTrue(any("checksum mismatch" in item for item in verified["problems"]))
@@ -606,7 +608,9 @@ class SimpleLifecycleTests(unittest.TestCase):
                 includes=["剧集/EP001/screenplay.md"],
                 omissions={"剧集/EP001/notes.md": "not requested"},
             )
-            manifest = json.loads((root / "交付/EP001/manifest.json").read_text())
+            manifest = json.loads(
+                (root / "交付/EP001/manifest.json").read_text(encoding="utf-8")
+            )
             self.assertEqual(
                 manifest["omitted"],
                 [{"reason": "not requested", "source": "剧集/EP001/notes.md"}],
@@ -654,7 +658,7 @@ class SimpleLifecycleTests(unittest.TestCase):
                     [sys.executable, str(SCRIPT), *command],
                     check=False,
                     capture_output=True,
-                    text=True,
+                    text=True, encoding="utf-8", errors="replace",
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIsInstance(json.loads(result.stdout), dict)
@@ -1351,7 +1355,13 @@ class CreatorExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = self.make_project(directory)
             alias = Path(directory) / "alias"
-            os.symlink(root, alias, target_is_directory=True)
+            try:
+                os.symlink(root, alias, target_is_directory=True)
+            except OSError as error:
+                # Windows 上建符号链接需要开发者模式或管理员权限（WinError 1314）。
+                # 这条测的是"同一目录换种拼法也不能覆盖导出"的真防护，不该因为
+                # 本机没权限就伪装成失败或跳过不提——明确 skip 并说明原因。
+                self.skipTest(f"当前环境无法创建符号链接，跳过别名防护用例：{error}")
             with self.assertRaises(ValueError):
                 project_tool.build_creator_export(root, out=alias, overwrite=True)
             self.assertTrue((root / "剧集/EP001/剧本.md").is_file())
@@ -1495,7 +1505,7 @@ class CreatorExportTests(unittest.TestCase):
                     str(out),
                 ],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
@@ -1566,7 +1576,15 @@ class AcceptedBytesAreTheAcceptedBytesTests(unittest.TestCase):
                 record = json.loads(state_path.read_text(encoding="utf-8"))[
                     "artifacts"
                 ]["EP001:script"]
-                directory_fd = os.open(root, os.O_RDONLY)
+                try:
+                    directory_fd = os.open(root, os.O_RDONLY)
+                except OSError as error:
+                    # Windows 不能用普通 O_RDONLY 打开目录（需要 FILE_FLAG_BACKUP_SEMANTICS），
+                    # 而产品代码在 Windows 上本来就走"按校验过的路径钉住"而非目录描述符
+                    # （见 ci.yml 的 windows-install 说明）。这条比对两种实现一致性的用例
+                    # 因此是 POSIX 专属：明确 skip，不让它伪装成失败或悄悄通过。
+                    self.skipTest(f"该平台不支持按目录描述符打开，跳过双实现一致性比对：{error}")
+                    raise
                 try:
                     return (
                         project_tool._artifact_state(root, record),

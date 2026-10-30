@@ -300,7 +300,7 @@ class MotionTimingCheckTests(unittest.TestCase):
                 [sys.executable, str(SCRIPT), str(motions), "--shots", str(shots)],
                 check=False,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8", errors="replace",
             )
 
             self.assertEqual(completed.returncode, 2)

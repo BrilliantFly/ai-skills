@@ -91,6 +91,14 @@ class FightMarkerParsingTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertTrue(parsed["exempt"])
 
+    def test_exempt_token_appended_to_the_last_part_still_parses(self) -> None:
+        # 文档写的是"在这几行末尾追加 `连相`"，所以 `姿态=低桩 连相` 这种写法必须可用
+        parsed, errors = self.parse("兵器·横刀 / 相位=起手 / 姿态=低桩 连相")
+        self.assertEqual(errors, [])
+        self.assertEqual(parsed["stance"], "低桩")
+        self.assertTrue(parsed["exempt"])
+        self.assertEqual(parsed["weapon"], "横刀")
+
 
 class FightSceneShapeTests(unittest.TestCase):
     def run_gate(self, records):
@@ -143,7 +151,7 @@ class FightSceneShapeTests(unittest.TestCase):
         ]
         errors = self.run_gate(records)
         self.assertEqual(len(errors), 1)
-        self.assertIn("都是「中景」", errors[0])
+        self.assertIn("景别都写作「中景」", errors[0])
 
     def test_missing_stance_floor_fire(self) -> None:
         records = [
@@ -246,6 +254,60 @@ class FightRelayTests(unittest.TestCase):
         self.assertEqual(count, 0)
         self.assertEqual(len(errors), 1)
         self.assertIn("没有写出任何", errors[0])
+
+
+class FightEpisodeAggregationTests(unittest.TestCase):
+    """分布门按全集聚合，相位连续仍按场——《针与剑》EP001 实测出来的口径修正。"""
+
+    def run_gate(self, records):
+        errors: list[str] = []
+        validator._check_fight_scene_shape(list(records), errors)
+        return errors
+
+    def test_distribution_counts_across_scenes(self) -> None:
+        records = [
+            record(0, "S1", "EP001-SC001", "起手", "低桩", "中景"),
+            record(1, "S2", "EP001-SC001", "接触瞬间", "特写", "中景"),
+            record(2, "S3", "EP001-SC001", "收势", "转身", "中景"),
+            record(3, "S4", "EP001-SC002", "起手", "腾空", "中景"),
+            record(4, "S5", "EP001-SC002", "接触瞬间", "低桩", "中景"),
+            record(5, "S6", "EP001-SC002", "收势", "转身", "中景"),
+        ]
+        errors = self.run_gate(records)
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("本集武打镜 6 镜", errors[0])
+        self.assertIn("景别都写作「中景」", errors[0])
+
+    def test_phase_run_does_not_cross_scene_boundary(self) -> None:
+        records = [
+            record(0, "S1", "EP001-SC001", "起手", "低桩", "中景"),
+            record(1, "S2", "EP001-SC001", "接触瞬间", "特写", "近景"),
+            record(2, "S3", "EP001-SC001", "起手", "转身", "全景"),
+            record(3, "S4", "EP001-SC002", "起手", "腾空", "远景"),
+            record(4, "S5", "EP001-SC002", "收势", "低桩", "中近景"),
+            record(5, "S6", "EP001-SC002", "接触瞬间", "特写", "特写"),
+        ]
+        self.assertEqual(self.run_gate(records), [])
+
+
+class FramingBucketTests(unittest.TestCase):
+    """复合景别标签归并到主景别档，否则扎堆测不出来。"""
+
+    def test_first_mentioned_band_wins(self) -> None:
+        cases = {
+            "中景带纵深，机位低": "中景",
+            "特写偏中景": "特写",
+            "仰角中远景": "中远景",
+            "中近景正反打": "中近景",
+            "大全景偏低机位": "大全景",
+            "低机位中景": "中景",
+        }
+        for label, expected in cases.items():
+            with self.subTest(label=label):
+                self.assertEqual(validator._framing_bucket(label), expected)
+
+    def test_unrecognised_label_is_kept(self) -> None:
+        self.assertEqual(validator._framing_bucket("侧面，过肩"), "侧面")
 
 
 if __name__ == "__main__":

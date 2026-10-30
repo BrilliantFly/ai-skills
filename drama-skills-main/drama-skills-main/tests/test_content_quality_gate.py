@@ -187,7 +187,7 @@ class ContentQualityGateTests(unittest.TestCase):
             cwd=repo,
             check=True,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
         ).stdout.strip()
         writer.write_text("candidate writer guidance\n", encoding="utf-8")
 

@@ -1,0 +1,15 @@
+# 生成物与本机缓存：仓库根一份覆盖两个包（drama 包内已有一份，chinese-novelist 此前没有）
+# 只列确定不该入库的东西；不写通配的目录名（如 outputs/、交付/），
+# 以免将来真有内容要提交时被静默忽略。
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器与本地私有配置
+.vscode/
+.idea/
