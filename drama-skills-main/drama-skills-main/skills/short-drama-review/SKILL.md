@@ -57,6 +57,10 @@ license: MIT
 - 授权生产观察的项目内校准：[项目校准](references/project-calibration.md)
 - 模板感、重复手法或 AI 味：[反模板修订](references/anti-template-repair.md)
 - 阶段边界、参考媒体与规则表：[阶段契约](references/stage-contract.md)
+<!-- mount:wuxia-fight v1 begin -->
+- 打斗、兵刃交锋、轻功腾跃与群戏的交锋可读性：[武打动作审查表](references/rubric-fight-action.md)
+  （速度与同时性仍归视觉运动审查表，器械写法权威在分镜侧）
+<!-- mount:wuxia-fight v1 end -->
 
 ## 工作流
 
@@ -85,6 +89,12 @@ license: MIT
   登记与它冲突时报资产负责人，不认剪辑单为新权威；
   母题物件的识别特征是否与 `视觉设定.md` 的道具条目逐字一致（资产是唯一登记处，分镜行是引用）；
 - 私有输入、凭据、绝对路径或内部流程文字是否泄漏。
+<!-- mount:wuxia-fight v1 begin -->
+- 武打镜（含 `- 武打：` 登记或明显是攻防）：接触点是否在攻守两侧同一位置同一本体角度、去掉招式名
+  后四问是否答得出（谁用什么攻/对方如何格挡/在哪接触/双方之后怎么弹开）、命中是否在**命中后的镜里**
+  留一项可见后果、同场连续三镜同相位、单一景别是否占掉整场武打镜的八成；判据与豁免口径见
+  [武打动作审查表](references/rubric-fight-action.md)。缺失只报证据并路由分镜与资产负责人，不代改。
+<!-- mount:wuxia-fight v1 end -->
 
 缺少必要输入时只停止依赖它的判断，其他问题可以继续汇总。
 

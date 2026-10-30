@@ -196,6 +196,14 @@ license: MIT
 - 一对多、混战与多人同时动作的轮次编排：[围攻与轮次](references/blocking-playbooks.md#5b-围攻与轮次一对多混战)
 - 项目已锁定打斗风格子包（攻防密度/接触方式/镜头跟打法/变速点）时：招式取值按子包，见
   [武指/打斗风格子包](../short-drama-develop/references/style-packs.md#武指打斗风格子包动作文法层)
+<!-- mount:wuxia-fight v1 begin -->
+- 本镜涉及兵器或拳掌的接触、发力链、轻功腾跃、超常输出，需要可拍的身体依据而不只是招式名时：
+  [武打身体依据](references/martial-action-library.md)（只补距离、发力链、接触强弱区与回收负担；
+  相位、受击反应与器械余态仍按[肢体互动手艺](references/physical-interaction-craft.md) §四/§五）
+- 武打镜需要判断一镜装得下多少、同场姿态与景别会不会扎堆、连续同相位是否成立时：
+  [武打镜的容量与配额](references/fight-shot-budget.md)（含可选登记行 `- 武打：` 的语法与三条机械门；
+  本集没有武打镜就不打开，也不为此新增动作）
+<!-- mount:wuxia-fight v1 end -->
 
 ## 修订
 

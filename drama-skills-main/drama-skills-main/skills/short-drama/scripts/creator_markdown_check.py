@@ -1592,6 +1592,150 @@ def missing_documents(episode: Path) -> list[str]:
     return [name for name in REQUIRED_DOCUMENTS if not (episode / name).is_file()]
 
 
+# --- 武打登记行：可选字段与它的三条机械门 --------------------------------
+#
+# A shot may add one line, `- 武打：兵器·X / 相位=Y / 姿态=Z`, to opt into the fight
+# gates. Documents without the line are validated exactly as before, so a mounted
+# fight rule can never retroactively fail an episode that was accepted without it.
+# The field is deliberately narrow: it registers only what a checker can read, and
+# leaves the narrative content in 唯一动作/起点/终点 where it already belongs.
+
+FIGHT_PHASES = ("起手", "接触瞬间", "收势")
+FIGHT_STANCES = ("低桩", "腾空", "转身", "特写", "自由站姿")
+FIGHT_WEAPON_RE = re.compile(r"兵器·([^/；;]+)")
+FIGHT_PHASE_RE = re.compile(r"相位\s*=\s*([^/；;]+)")
+FIGHT_STANCE_RE = re.compile(r"姿态\s*=\s*([^/；;]+)")
+FIGHT_EXEMPT_TOKEN = "连相"
+# `- 景别/机位：中近景，门框外侧，轻微低机位。` carries the shot size first; the
+# distribution gate groups on that label and ignores the rest of the line.
+_FIGHT_FRAMING_RE = re.compile(r"[，、,].*$")
+
+
+def _entry_label(name: str) -> str:
+    """`横刀（柄缠布）` -> `横刀`: a prop entry may qualify itself in brackets."""
+    return re.split(r"[（(]", name, maxsplit=1)[0].strip()
+
+
+def _parse_fight_marker(
+    value: str, shot_id: str, errors: list[str]
+) -> Optional[dict[str, str]]:
+    """Parse one shot's `- 武打：` line, or return None when the shot opts out.
+
+    A half-written marker is rejected rather than ignored: it reads like coverage
+    while silently switching the gate off, which is the exact downgrade this
+    contract exists to prevent.
+    """
+    plain = _plain(value)
+    if not plain:
+        return None
+    if _is_none(plain):
+        errors.append(
+            f"{shot_id}: 「- 武打：」填了空占位「{plain}」；本镜不是武打镜就不写这一行，"
+            "是武打镜就按 `兵器·X / 相位=Y / 姿态=Z` 写全"
+        )
+        return None
+    exempt = FIGHT_EXEMPT_TOKEN in plain
+    phase_match = FIGHT_PHASE_RE.search(plain)
+    if phase_match is None:
+        errors.append(
+            f"{shot_id}: 「- 武打：」缺少 `相位=`；一镜只走一个相位，取值只能是 "
+            + " / ".join(FIGHT_PHASES)
+            + " 之一，命中结果交给下一镜或反应镜"
+        )
+        return None
+    phase = phase_match.group(1).strip()
+    if phase not in FIGHT_PHASES:
+        errors.append(
+            f"{shot_id}: 武打相位「{phase}」不在三选之内，只能是 "
+            + " / ".join(FIGHT_PHASES)
+            + "；起手、接触瞬间、收势分属不同镜的职责"
+        )
+        return None
+    stance_match = FIGHT_STANCE_RE.search(plain)
+    if stance_match is None:
+        errors.append(
+            f"{shot_id}: 「- 武打：」缺少 `姿态=`，取值只能是 "
+            + " / ".join(FIGHT_STANCES)
+            + " 之一"
+        )
+        return None
+    stance = stance_match.group(1).strip()
+    if stance not in FIGHT_STANCES:
+        errors.append(
+            f"{shot_id}: 武打姿态「{stance}」不在取值之内，只能是 "
+            + " / ".join(FIGHT_STANCES)
+            + " 之一"
+        )
+        return None
+    weapon_match = FIGHT_WEAPON_RE.search(plain)
+    weapon = weapon_match.group(1).strip() if weapon_match else ""
+    if weapon in {"徒手", "无"}:
+        weapon = ""
+    return {"phase": phase, "stance": stance, "weapon": weapon, "exempt": exempt}
+
+
+def _check_fight_scene_shape(
+    records: list[tuple[int, str, str, dict[str, str], str]], errors: list[str]
+) -> None:
+    """Per-scene fight gates: phase runs and framing concentration.
+
+    Both thresholds are coarse on purpose. They fire on the two shapes that made
+    fight episodes unreadable -- three shots that all stop before contact, and a
+    whole exchange told in one shot size -- and stay silent below six fight shots
+    in a scene, where a sample that small says nothing about distribution.
+    """
+    grouped: dict[str, list[tuple[int, str, dict[str, str], str]]] = {}
+    for order, shot_id, scene_key, fight, framing in records:
+        grouped.setdefault(scene_key, []).append((order, shot_id, fight, framing))
+    for scene_key, items in sorted(grouped.items()):
+        items.sort(key=lambda item: item[0])
+        if len(items) < 2:
+            continue
+        run: list[tuple[str, dict[str, str]]] = []
+        for _, shot_id, fight, _framing in items:
+            if fight.get("exempt"):
+                run = []
+                continue
+            if run and run[-1][1]["phase"] == fight["phase"]:
+                run.append((shot_id, fight))
+            else:
+                run = [(shot_id, fight)]
+            if len(run) == 3:
+                errors.append(
+                    f"{scene_key}: 连续三镜武打相位都是「{fight['phase']}」"
+                    f"（{'、'.join(item[0] for item in run)}）；相邻武打镜要交出攻防，"
+                    f"起手之后该到接触，接触之后该到后果。确要连续同相位（如三连格挡推进、"
+                    f"余震连镜）就在这几镜的「- 武打：」末尾追加 `{FIGHT_EXEMPT_TOKEN}`"
+                )
+        if len(items) < 6:
+            continue
+        buckets = [item[3] for item in items if item[3]]
+        if len(buckets) < len(items):
+            continue  # 景别字段缺失的镜不归并统计，交给既有字段检查
+        counts: dict[str, int] = {}
+        for bucket in buckets:
+            counts[bucket] = counts.get(bucket, 0) + 1
+        top_bucket, top_count = max(counts.items(), key=lambda item: item[1])
+        if top_count * 5 >= len(items) * 4:
+            errors.append(
+                f"{scene_key}: 本场武打镜 {len(items)} 镜里有 {top_count} 镜都是「{top_bucket}」；"
+                "整场同一档景别既读不清接触点，也读不清受击表情，相邻镜会看起来只是换姿势。"
+                "把其中一至两镜改成近景特写或俯仰机位，让至少一次接触与一次受击落在读得到的景别里"
+            )
+        stances = [item[2]["stance"] for item in items]
+        missing = [
+            stance
+            for stance in ("低桩", "腾空", "转身", "特写")
+            if stance not in stances
+        ]
+        if missing:
+            errors.append(
+                f"{scene_key}: 本场武打镜 {len(items)} 镜完全没有"
+                f"{'、'.join(missing)}姿态；下限按 ⌈n/5⌉ 低桩、⌈n/8⌉ 腾空、⌈n/5⌉ 转身、"
+                "⌈n/8⌉ 近景特写取值。凑不出就删一镜过场，不要为了配额新增动作或腾空"
+            )
+
+
 def validate_episode(
     episode: Path, project_root: Optional[Path] = None, *, partial: bool = False
 ) -> list[str]:
@@ -1861,7 +2005,9 @@ def validate_documents(
                 errors.append(f"{motion_id}: 可复制提示词没有包含静态视觉锚点")
         return motion_fields, anchor
 
-    for shot_id, shot_body in shots.items():
+    fight_records: list[tuple[int, str, str, dict[str, str], str]] = []
+
+    for shot_index, (shot_id, shot_body) in enumerate(shots.items()):
         fields = _fields(shot_body, owner=shot_id, errors=errors)
         if "声音" not in fields:
             errors.append(
@@ -1939,6 +2085,36 @@ def validate_documents(
             )
         if basis.parsed:
             in_frame[shot_id] = basis.declared
+        fight = _parse_fight_marker(fields.get("武打", ""), shot_id, errors)
+        if fight is not None:
+            scene_ids = sorted(shot_scene_map.get(shot_id) or [])
+            fight_records.append(
+                (
+                    shot_index,
+                    shot_id,
+                    scene_ids[0] if scene_ids else shot_id,
+                    fight,
+                    _FIGHT_FRAMING_RE.sub("", _plain(fields.get("景别/机位", ""))).strip(),
+                )
+            )
+            # 兵器一致性是道具连续性：武打镜点名的兵器必须是《视觉设定.md》里的道具条目，
+            # 并在本镜视觉依据中出现。没有视觉设定时跳过，与既有覆盖检查同一口径。
+            if fight["weapon"] and has_visual and basis.parsed:
+                label = _entry_label(fight["weapon"])
+                matched = any(
+                    category == "道具"
+                    and (
+                        label in _entry_label(name)
+                        or _entry_label(name) in label
+                    )
+                    for category, name in basis.accounted
+                )
+                if not matched:
+                    errors.append(
+                        f"{shot_id}: 武打镜的兵器「{fight['weapon']}」没有对应的《视觉设定.md》"
+                        "道具条目，或本镜「视觉依据」没有点名它；武打戏里镜头间换一把兵器比姿态"
+                        "飘移更致命，先由资产阶段建项（含形制、磨损与数量），再在本镜引用"
+                    )
         # The keyframe is the only place the frame's contents exist as text, so a
         # shot without one would make the coverage check below vacuous.
         keyframe = _copyable_prompt(shot_body, heading=r"冻结关键帧提示词")
@@ -2018,6 +2194,9 @@ def validate_documents(
             _check_named_coverage(
                 anchor, motion_id, "静态视觉锚点", basis, visual_entries, errors
             )
+
+    if fight_records:
+        _check_fight_scene_shape(fight_records, errors)
 
     if not has_storyboard:
         # A partial check without 分镜.md still owes each MOTION the rules that
