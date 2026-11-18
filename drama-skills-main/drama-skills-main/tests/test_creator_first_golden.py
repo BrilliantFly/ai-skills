@@ -116,6 +116,7 @@ EXPECTED_KNOWHOW = {
         "stage-gate-confirmation.md",
         "storyboard-sheet-recipe.md",
         "transitions-craft.md",
+        "voicetrack-renderability.md",
     },
     "short-drama-video-prompts": {
         "camera-audio-continuity.md",

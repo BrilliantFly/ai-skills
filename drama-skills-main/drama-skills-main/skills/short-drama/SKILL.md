@@ -27,6 +27,7 @@ license: MIT
 | 做镜头和冻结关键帧 | `$short-drama-storyboard` → `分镜.md` |
 | 写视频/时间线音乐提示词 | `$short-drama-video-prompts` → `视频提示词.md` |
 | 实际生成媒体 | `$short-drama-produce`，先预览，再显式确认，最后运行 |
+| 验对白是否真的生成出来 | `$short-drama-produce` 的「结果与复核」第 ④ 问（抽音轨转写 + 先做对照转写） |
 | 把已生产的素材剪成成片 | `$short-drama-edit` → `剪辑单.md` 与 `制作成果/成片/` |
 | 审稿或校验 | `$short-drama-review`，仅在用户点名时 |
 | 初始化、Dashboard、归档点名文档 | 本技能 |
